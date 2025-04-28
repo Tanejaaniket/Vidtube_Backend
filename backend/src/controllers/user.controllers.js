@@ -8,7 +8,12 @@ import {
 } from "../utils/cloudinary.js";
 import jwt from "jsonwebtoken";
 import mongoose, { Mongoose } from "mongoose";
-import { changeAccountDetailsMail, changePasswordMail, loginMail, signupMail } from "../utils/mailer.js";
+import {
+  changeAccountDetailsMail,
+  changePasswordMail,
+  loginMail,
+  signupMail,
+} from "../utils/mailer.js";
 
 const registerUser = asyncHandler(async (req, res) => {
   const { fullname, email, password, username } = req.body;
@@ -71,7 +76,7 @@ const registerUser = asyncHandler(async (req, res) => {
       await generateAccessTokenAndRefreshToken(user._id);
 
     const options = {
-      httpOnly: true,
+      httpOnly: false,
       secure: true,
       sameSite: "lax",
       path: "/",
@@ -151,7 +156,7 @@ const loginUser = asyncHandler(async (req, res) => {
 
   //*Options for cookie secure false allows them on http path / ensure cookie is accessible on all paths
   const options = {
-    httpOnly: true,
+    httpOnly: false,
     secure: true,
     sameSite: "lax",
     path: "/",
@@ -199,7 +204,7 @@ const refreshAcessToken = asyncHandler(async (req, res) => {
       await generateAccessTokenAndRefreshToken(user._id);
 
     const options = {
-      httpOnly: true,
+      httpOnly: false,
       secure: true,
       sameSite: "lax",
       path: "/",
@@ -228,7 +233,7 @@ const logoutUser = asyncHandler(async (req, res) => {
     $set: { refreshToken: null },
   });
   const options = {
-    httpOnly: true,
+    httpOnly: false,
     secure: true,
     sameSite: "lax",
     path: "/",
@@ -337,7 +342,7 @@ const updateUserAvatar = asyncHandler(async (req, res) => {
 });
 
 const updateUserCoverImage = asyncHandler(async (req, res) => {
-  const coverPath  = req.file?.path;
+  const coverPath = req.file?.path;
   if (!coverPath) throw new ApiError(400, "Cover image is required");
   let coverImage = "";
   try {
