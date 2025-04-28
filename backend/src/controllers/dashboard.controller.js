@@ -10,9 +10,9 @@ import { Subscription } from "../models/subscription.models.js";
 import mongoose, { Mongoose } from "mongoose";
 
 const getChannelVideos = asyncHandler(async (req, res) => { 
-  const userId = req.user?._id;
-  if (!userId) throw new ApiError(404, "User must login first");
-  const videos = await Video.find({ owner: userId });
+  const {channelId} = req.params;
+  if (!channelId) throw new ApiError(404, "User must login first");
+  const videos = await Video.find({ owner: new mongoose.Types.ObjectId(channelId) });
   if (!videos) throw new ApiError(404, "No videos found");
   return res.status(200).json(
     new ApiResponse(200, "Videos found successfully", videos)
@@ -20,12 +20,12 @@ const getChannelVideos = asyncHandler(async (req, res) => {
 })
 
 const getChannelStats = asyncHandler(async (req, res) => { 
-  const userId = req.user?._id;
-  if (!userId) throw new ApiError(404, "User must login first");
+  const {channelId} = req.params;
+  if (!channelId) throw new ApiError(404, "User must login first");
   const videoStats = await Video.aggregate([
     {
       $match: {
-        owner: new mongoose.Types.ObjectId(userId),
+        owner: new mongoose.Types.ObjectId(channelId),
       },
     },
     {
@@ -48,7 +48,7 @@ const getChannelStats = asyncHandler(async (req, res) => {
         pipeline: [
           {
             $match: {
-              owner: new mongoose.Types.ObjectId(userId),
+              owner: new mongoose.Types.ObjectId(channelId),
             },
           },
         ],
@@ -66,7 +66,7 @@ const getChannelStats = asyncHandler(async (req, res) => {
   const subscriptions = await Subscription.aggregate([
     {
       $match: {
-        channel: new mongoose.Types.ObjectId(userId),
+        channel: new mongoose.Types.ObjectId(channelId),
       },
     },
     {

@@ -27,22 +27,24 @@ const toggleVideoLike = asyncHandler(async (req, res) => {
     return res
       .status(200)
       .json(
-        new ApiResponse(200, "Video liked successfully",{newLike,isLiked:true})
+        new ApiResponse(200, "Video liked successfully", {
+          newLike,
+          isLiked: true,
+        })
       );
   } else {
     const deletedLike = await Like.findByIdAndDelete(likedVideo._id);
     if (!deletedLike)
       throw new ApiError(500, "Something went wrong while unliking a video");
-    return res
-      .status(200)
-      .json(
-        new ApiResponse(200, "Video unliked successfully", {
-          deletedLike,
-          isLiked: false,
-        })
-      );
+    return res.status(200).json(
+      new ApiResponse(200, "Video unliked successfully", {
+        deletedLike,
+        isLiked: false,
+      })
+    );
   }
 });
+
 const toggleCommentLike = asyncHandler(async (req, res) => {
   const { commentId } = req.params;
   const userId = req.user?._id;
@@ -77,6 +79,7 @@ const toggleCommentLike = asyncHandler(async (req, res) => {
     );
   }
 });
+
 const toggleTweetLike = asyncHandler(async (req, res) => {
   const { tweetId } = req.params;
   const userId = req.user?._id;
@@ -111,6 +114,7 @@ const toggleTweetLike = asyncHandler(async (req, res) => {
     );
   }
 });
+
 const getLikedVideos = asyncHandler(async (req, res) => {
   //Get only those videos whose isPublished is still true in video model
   const userId = req.user?._id;
@@ -140,7 +144,7 @@ const getLikedVideos = asyncHandler(async (req, res) => {
               from: "users",
               localField: "owner",
               foreignField: "_id",
-              as: "videoOwnerDetails",
+              as: "ownerDetails",
               pipeline: [
                 {
                   $project: {
@@ -152,6 +156,11 @@ const getLikedVideos = asyncHandler(async (req, res) => {
               ],
             },
           },
+          {
+            $unwind: {
+              path: "$ownerDetails",
+            },
+          },
         ],
       },
     },
@@ -159,21 +168,27 @@ const getLikedVideos = asyncHandler(async (req, res) => {
       //It will return plain object instead of whole video
       $unwind: {
         path: "$likedVideo",
-        preserveNullAndEmptyArrays: true,
+      },
+    },
+    {
+      $replaceRoot: {
+        newRoot: {
+          $mergeObjects: [ "$$ROOT","$likedVideo",],
+        }
       },
     },
     {
       $project: {
-        likedVideo: 1,
-        createdAt: 1,
-        updatedAt: 1,
+        likedVideo: 0,
       },
-    },
+    }
   ]);
   if (!likedVideos)
     throw new ApiError(500, "Error while fetching liked videos");
   if (!likedVideos.length)
-    return res.status(200).json(new ApiResponse(200,"No liked videos found",likedVideos))
+    return res
+      .status(200)
+      .json(new ApiResponse(200, "No liked videos found", likedVideos));
   res
     .status(200)
     .json(
@@ -181,4 +196,47 @@ const getLikedVideos = asyncHandler(async (req, res) => {
     );
 });
 
-export { toggleVideoLike, toggleCommentLike, toggleTweetLike, getLikedVideos };
+const getVideoLikes = asyncHandler(async (req, res) => {
+  const { videoId } = req.params;
+  const videoLikes = await Like.find({ video: videoId });
+  console.log("Here is the video likes", videoLikes);
+  if (!videoLikes) throw new ApiError(500, "Error while fetching video likes");
+  res
+    .status(200)
+    .json(new ApiResponse(200, "Video likes fetched successfully", videoLikes));
+});
+
+const isVideoLiked = asyncHandler(async (req, res) => {
+  const { videoId } = req.params;
+  const userId = req.user?._id;
+  if (!userId) throw new ApiError(404, "User must logged in first");
+  if (!videoId) throw new ApiError(404, "Channel id is required");
+  const isLiked = await Like.findOne({
+    video: videoId,
+    likedBy: userId,
+  });
+  if (!isLiked)
+    return res
+      .status(200)
+      .json(
+        new ApiResponse(200, "User is not subscribed to the channel", {
+          isLiked: false,
+        })
+      );
+  return res
+    .status(200)
+    .json(
+      new ApiResponse(200, "User is subscribed to the channel", {
+        isLiked: true,
+      })
+    );
+});
+
+export {
+  toggleVideoLike,
+  toggleCommentLike,
+  toggleTweetLike,
+  getLikedVideos,
+  getVideoLikes,
+  isVideoLiked,
+};

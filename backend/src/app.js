@@ -6,12 +6,16 @@ import cookieParser from "cookie-parser";
 
 const app = express();
 
+app.use(cookieParser());
+
 app.use(
   cors({
-    origin: process.env.CORS_ORIGIN,
+    origin: "http://localhost:5173",
     credentials: true,
+    methods: ["GET", "POST", "PATCH", "DELETE","PUT"],
   })
 );
+
 
 app.use(
   express.json({
@@ -23,7 +27,6 @@ app.use(express.urlencoded({ extended: true, limit: "16kb" }));
 
 app.use(express.static("public"));
 
-app.use(cookieParser());
 
 //Importing routes
 import healthCheckRouter from "./routes/healthCheck.routes.js";

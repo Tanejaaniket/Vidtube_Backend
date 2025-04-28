@@ -6,21 +6,18 @@ import ApiError from "../utils/ApiError.js";
 import ApiResponse from "../utils/ApiResponse.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { Subscription } from "../models/subscription.models.js";
-import mongoose,{ Mongoose } from "mongoose";
+import mongoose, { Mongoose } from "mongoose";
 
 const toggleSubscription = asyncHandler(async (req, res) => {
   const { channelId } = req.params;
   const userId = req.user?._id;
   if (!userId) throw new ApiError(404, "User must logged in first");
   if (!channelId) throw new ApiError(404, "Channel id is required");
-  const isSubscribed = await Subscription.aggregate([
-    {
-      $match: {
-        channel: new mongoose.Types.ObjectId(channelId),
-        subscriber: new mongoose.Types.ObjectId(userId),
-      },
-    },
-  ]);
+  const isSubscribed = await Subscription.find({
+    channel: channelId,
+    subscriber: userId,
+  });
+
   if (!isSubscribed.length) {
     const subscribe = await Subscription.create({
       channel: channelId,
@@ -32,19 +29,21 @@ const toggleSubscription = asyncHandler(async (req, res) => {
         new ApiResponse(
           200,
           "User subscribed successfully to the channel",
-          subscribe
+          {subscribe,isSubscribed:true},
         )
       );
-      
   } else {
-    const unSubscribe = await Subscription.findByIdAndDelete(isSubscribed[0]?._id);
+    const unSubscribe = await Subscription.findByIdAndDelete(
+      isSubscribed[0]?._id
+    );
     return res
       .status(200)
       .json(
         new ApiResponse(
           200,
           "User unsubscribed successfully to the channel",
-          unSubscribe
+          {unSubscribe,isSubscribed:false},
+          
         )
       );
   }
@@ -85,9 +84,9 @@ const getUserChannelSubcribers = asyncHandler(async (req, res) => {
     );
 });
 
-const getSubscribedChannels  = asyncHandler(async (req, res) => {
+const getSubscribedChannels = asyncHandler(async (req, res) => {
   const { subscriberId } = req.params;
-  if (!subscriberId) throw new ApiError(400, "Subscriber id is required") ;
+  if (!subscriberId) throw new ApiError(400, "Subscriber id is required");
   const channels = await Subscription.aggregate([
     {
       $match: {
@@ -99,7 +98,7 @@ const getSubscribedChannels  = asyncHandler(async (req, res) => {
         from: "users",
         localField: "channel",
         foreignField: "_id",
-        as: "subscriberedTo",
+        as: "subscribedTo",
         pipeline: [
           {
             $project: {
@@ -111,13 +110,41 @@ const getSubscribedChannels  = asyncHandler(async (req, res) => {
         ],
       },
     },
+    {
+      $unwind: "$subscribedTo",
+    },
+    {
+      $replaceRoot: {
+        newRoot: {
+          $mergeObjects: ["$subscribedTo", "$$ROOT"],
+        },
+      },
+    }, {
+      $project: {
+        subscribedTo: 0,
+      },
+    }
   ]);
-  if (!channels.length) throw new ApiError(404, "No subscriptions found");
+  if (!channels.length)
+    return res
+      .status(200)
+      .json(new ApiResponse(200, "No subscriptions found", channels));
   res
     .status(200)
-    .json(
-      new ApiResponse(200, "Subscriptions fetched successfully", channels)
-    );
+    .json(new ApiResponse(200, "Subscriptions fetched successfully", channels));
 });
 
-export {getSubscribedChannels,getUserChannelSubcribers,toggleSubscription}
+const isChannelSubscribed = asyncHandler(async (req, res) => { 
+  const { channelId } = req.params;
+  const userId = req.user?._id;
+  if (!userId) throw new ApiError(404, "User must logged in first");
+  if (!channelId) throw new ApiError(404, "Channel id is required");
+  const isSubscribed = await Subscription.findOne({
+    channel:channelId,
+    subscriber:userId,
+  })
+  if (!isSubscribed) return res.status(200).json(new ApiResponse(200, "User is not subscribed to the channel", { isSubscribed: false }))
+  return res.status(200).json(new ApiResponse(200, "User is subscribed to the channel", { isSubscribed: true }))
+})
+
+export { getSubscribedChannels, getUserChannelSubcribers, toggleSubscription, isChannelSubscribed };

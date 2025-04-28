@@ -10,10 +10,18 @@ import { Video } from "../models/video.models.js";
 import ApiError from "../utils/ApiError.js";
 import ApiResponse from "../utils/ApiResponse.js";
 import mongoose, { Mongoose } from "mongoose";
-import {uploadOnCloudinary} from "../utils/cloudinary.js";
+import { uploadOnCloudinary } from "../utils/cloudinary.js";
+import { User } from "../models/user.models.js";
 
 const getAllVideos = asyncHandler(async (req, res) => {
-  const { page = 1, limit = 10, query, sortBy, sortType = 1, userId } = req.query;
+  const {
+    page = 1,
+    limit = 10,
+    query,
+    sortBy,
+    sortType = 1,
+    userId,
+  } = req.query;
   const filter = {};
   if (query) {
     filter.title = { $regex: query, $options: "i" };
@@ -23,7 +31,7 @@ const getAllVideos = asyncHandler(async (req, res) => {
   }
   const pipeline = [
     {
-      $match: {...filter, isPublished: true},
+      $match: { ...filter, isPublished: true },
     },
     {
       $lookup: {
@@ -47,27 +55,33 @@ const getAllVideos = asyncHandler(async (req, res) => {
         [sortBy || "createdAt"]: sortType,
       },
     },
-  ]
-  console.log(pipeline)
+    {
+      $unwind: {
+        path: "$ownerDetails",
+      },
+    },
+  ];
+  console.log(pipeline);
   let paginatedVideos = [];
   try {
     paginatedVideos = await Video.aggregatePaginate(Video.aggregate(pipeline), {
       page,
       limit,
     });
-    if(!paginatedVideos?.docs?.length) throw new ApiError(404, "Videos not found")
+    if (!paginatedVideos?.docs?.length)
+      throw new ApiError(404, "Videos not found");
     return res
       .status(200)
       .json(
         new ApiResponse(200, "Videos fetched successfully", paginatedVideos)
       );
-    } catch (error) {
-      throw new ApiError(
-        500,
-        "Something went wrong while fetching videos",
-        error
-      );
-    }
+  } catch (error) {
+    throw new ApiError(
+      500,
+      "Something went wrong while fetching videos",
+      error
+    );
+  }
 });
 
 const getVideoById = asyncHandler(async (req, res) => {
@@ -104,6 +118,11 @@ const getVideoById = asyncHandler(async (req, res) => {
         views: { $add: ["$views", 1] },
       },
     },
+    {
+      $unwind: {
+        path: "$ownerDetails",
+      },
+    },
     // {
     //   $merge: {
     //     into: "videos",
@@ -112,24 +131,41 @@ const getVideoById = asyncHandler(async (req, res) => {
     //   },
     // },
   ]);
-  try {
-    //Updating views on video
-    await Video.findOneAndUpdate({
-        _id: videoId,
-        isPublished: true
-      },
+
+  if (!video)
+    throw new ApiError(500, "Something went wrong while fetching video");
+  if (!video?.length) throw new ApiError(404, "Video not found");
+
+  //* Updating user watch history
+  const user = await User.findById(req.user?._id);
+  if (!user) throw new ApiError(404, "User not found");
+  const alreadyWatched = user.watchHistory.includes(videoId);
+  if (!alreadyWatched) { 
+    await User.findByIdAndUpdate(
+      req.user?._id,
       {
-        $inc: { views: 1 }
+        $addToSet: { watchHistory: videoId },
       }
-    );
-  }catch (error) {
-    console.log(`Unable to increment video view`,error)
+    )
+      try {
+        //Updating views on video
+        await Video.findOneAndUpdate(
+          {
+            _id: videoId,
+            isPublished: true,
+          },
+          {
+            $inc: { views: 1 },
+          }
+        );
+      } catch (error) {
+        console.log(`Unable to increment video view`, error);
+      }
   }
-  if (!video) throw new ApiError(500, "Something went wrong while fetching video");
-  if(!video?.length) throw new ApiError(404, "Video not found")
+
   return res
     .status(200)
-    .json(new ApiResponse(200, "Video fetched successfully", video));
+    .json(new ApiResponse(200, "Video fetched successfully", video[0]));
 });
 
 const deleteVideo = asyncHandler(async (req, res) => {
@@ -148,15 +184,19 @@ const updateVideo = asyncHandler(async (req, res) => {
   if (!title && !description && !thumbnail)
     throw new ApiError(400, "At least one field is required");
   const video = await Video.findOne({ _id: videoId, owner: req.user?._id });
-  console.log(video)
+  console.log(video);
   if (!video) throw new ApiError(404, "Video not found");
   try {
     let uploadedThumbnail = "";
     if (title) video.title = title;
     if (description) video.description = description;
     if (thumbnail) {
-      uploadedThumbnail = await uploadOnCloudinary(thumbnail)
-      if (!uploadedThumbnail) throw new ApiError(500, "Something went wrong while uploading thumbnail")
+      uploadedThumbnail = await uploadOnCloudinary(thumbnail);
+      if (!uploadedThumbnail)
+        throw new ApiError(
+          500,
+          "Something went wrong while uploading thumbnail"
+        );
       video.thumbnail = uploadedThumbnail?.secure_url;
     }
     const updatedVideo = await video.save({ validateBeforeSave: false });
@@ -164,15 +204,16 @@ const updateVideo = asyncHandler(async (req, res) => {
       .status(200)
       .json(new ApiResponse(200, "Video updated successfully", updatedVideo));
   } catch (error) {
-    throw new ApiError(500, "Something went wrong while updating video",error);
+    throw new ApiError(500, "Something went wrong while updating video", error);
   }
 });
 
-const publishAVideo = asyncHandler(async (req, res) => { 
+const publishAVideo = asyncHandler(async (req, res) => {
   const { title, description } = req.body;
   const video = req.files?.video?.[0]?.path;
   const thumbnail = req.files?.thumbnail?.[0]?.path;
-  if (!title || !description || !video || !thumbnail) throw new ApiError(400, "All fields are required")
+  if (!title || !description || !video || !thumbnail)
+    throw new ApiError(400, "All fields are required");
   let uploadedVideo = "";
   let uploadedThumbnail = "";
   try {
@@ -194,17 +235,45 @@ const publishAVideo = asyncHandler(async (req, res) => {
   return res
     .status(200)
     .json(new ApiResponse(200, "Video published successfully", newVideo));
-})
+});
 
-const togglePublishStatus = asyncHandler(async (req, res) => { 
+const togglePublishStatus = asyncHandler(async (req, res) => {
   const { videoId } = req.params;
   const video = await Video.findById(videoId);
-  if(!video) throw new ApiError(404, "Video not found");
+  if (!video) throw new ApiError(404, "Video not found");
   video.isPublished = !video.isPublished;
   const updatedVideo = await video.save({ validateBeforeSave: false });
   return res
     .status(200)
     .json(new ApiResponse(200, "Video updated successfully", updatedVideo));
-})
+});
 
-export {updateVideo,publishAVideo,togglePublishStatus,getAllVideos,getVideoById,deleteVideo}
+const searchVideos = asyncHandler(async (req, res) => {
+  const { search } = req.query || " ";
+  if(!search) throw new ApiError(400, "Search query is required");
+  const video = await Video.find({
+    $and: [
+      {
+        $or: [
+          { title: { $regex: search, $options: "i" } },
+          { description: { $regex: search, $options: "i" } },
+        ],
+        isPublished: true,
+      },
+    ],
+  });
+  if (!video) throw new ApiError(404, "Video not found");
+  return res
+    .status(200)
+    .json(new ApiResponse(200, "Videos found successfully", video));
+});
+
+export {
+  updateVideo,
+  publishAVideo,
+  togglePublishStatus,
+  getAllVideos,
+  getVideoById,
+  deleteVideo,
+  searchVideos
+};
