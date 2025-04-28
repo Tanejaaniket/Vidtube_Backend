@@ -76,9 +76,9 @@ const registerUser = asyncHandler(async (req, res) => {
       await generateAccessTokenAndRefreshToken(user._id);
 
     const options = {
-      httpOnly: false,
+      httpOnly: true,
       secure: true,
-      sameSite: "lax",
+      sameSite: "none",
       path: "/",
       maxAge: 10 * 24 * 60 * 60 * 1000,
     };
@@ -156,9 +156,9 @@ const loginUser = asyncHandler(async (req, res) => {
 
   //*Options for cookie secure false allows them on http path / ensure cookie is accessible on all paths
   const options = {
-    httpOnly: false,
+    httpOnly: true,
     secure: true,
-    sameSite: "lax",
+    sameSite: "none",
     path: "/",
     maxAge: 10 * 24 * 60 * 60 * 1000,
   };
@@ -204,9 +204,9 @@ const refreshAcessToken = asyncHandler(async (req, res) => {
       await generateAccessTokenAndRefreshToken(user._id);
 
     const options = {
-      httpOnly: false,
+      httpOnly: true,
       secure: true,
-      sameSite: "lax",
+      sameSite: "none",
       path: "/",
       maxAge: 10 * 24 * 60 * 60 * 1000,
     };
@@ -233,9 +233,9 @@ const logoutUser = asyncHandler(async (req, res) => {
     $set: { refreshToken: null },
   });
   const options = {
-    httpOnly: false,
+    httpOnly: true,
     secure: true,
-    sameSite: "lax",
+    sameSite: "none",
     path: "/",
   };
   res
