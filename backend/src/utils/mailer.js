@@ -1,11 +1,11 @@
 // Looking to send emails in production? Check out our Email API/SMTP product!
 import nodemailer from "nodemailer";
 const transporter = nodemailer.createTransport({
-  host: "sandbox.smtp.mailtrap.io",
-  port: 2525,
+  host: "smtp.gmail.com",
+  port: 587,
   auth: {
-    user: "887e662601209e",
-    pass: "318c37cade8140",
+    user: process.env.MAILER_USER,
+    pass: process.env.MAILER_PASSWORD,
   },
 });
 
