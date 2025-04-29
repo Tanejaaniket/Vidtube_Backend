@@ -12,7 +12,7 @@ import mongoose, { Mongoose } from "mongoose";
 const getChannelVideos = asyncHandler(async (req, res) => { 
   const {channelId} = req.params;
   if (!channelId) throw new ApiError(404, "User must login first");
-  const videos = await Video.find({ owner: new mongoose.Types.ObjectId(channelId) });
+  const videos = await Video.find({ owner: channelId });
   if (!videos) throw new ApiError(404, "No videos found");
   return res.status(200).json(
     new ApiResponse(200, "Videos found successfully", videos)
