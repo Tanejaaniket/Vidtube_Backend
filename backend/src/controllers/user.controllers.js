@@ -81,6 +81,7 @@ const registerUser = asyncHandler(async (req, res) => {
       sameSite: "none",
       path: "/",
       maxAge: 10 * 24 * 60 * 60 * 1000,
+      expires: new Date(Date.now() + 10 * 24 * 60 * 60 * 1000),
     };
 
     await signupMail(user.username, user.email).catch((error) => {
@@ -161,6 +162,7 @@ const loginUser = asyncHandler(async (req, res) => {
     sameSite: "none",
     path: "/",
     maxAge: 10 * 24 * 60 * 60 * 1000,
+    expires: new Date(Date.now() + 10 * 24 * 60 * 60 * 1000),
   };
 
   await loginMail(loggedInUser.username, loggedInUser.email).catch((error) => {
@@ -209,6 +211,7 @@ const refreshAcessToken = asyncHandler(async (req, res) => {
       sameSite: "none",
       path: "/",
       maxAge: 10 * 24 * 60 * 60 * 1000,
+      expires: new Date(Date.now() + 10 * 24 * 60 * 60 * 1000),
     };
     res
       .status(200)
