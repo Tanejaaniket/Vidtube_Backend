@@ -81,7 +81,6 @@ const registerUser = asyncHandler(async (req, res) => {
       sameSite: "none",
       path: "/",
       maxAge: 10 * 24 * 60 * 60 * 1000,
-      expires: new Date(Date.now() + 10 * 24 * 60 * 60 * 1000),
     };
 
     await signupMail(user.username, user.email).catch((error) => {
@@ -90,7 +89,13 @@ const registerUser = asyncHandler(async (req, res) => {
 
     res
       .status(201)
-      .cookie("refreshToken", refreshToken, options)
+      .cookie("refreshToken", refreshToken, {
+        httpOnly: true,
+        secure: true,
+        sameSite: "none",
+        path: "/",
+        maxAge: 30 * 24 * 60 * 60 * 1000,
+      })
       .cookie("accessToken", accessToken, options)
       .json(
         new ApiResponse(
@@ -162,7 +167,6 @@ const loginUser = asyncHandler(async (req, res) => {
     sameSite: "none",
     path: "/",
     maxAge: 10 * 24 * 60 * 60 * 1000,
-    expires: new Date(Date.now() + 10 * 24 * 60 * 60 * 1000),
   };
 
   await loginMail(loggedInUser.username, loggedInUser.email).catch((error) => {
@@ -170,7 +174,13 @@ const loginUser = asyncHandler(async (req, res) => {
   });
   res
     .status(200)
-    .cookie("refreshToken", refreshToken, options)
+    .cookie("refreshToken", refreshToken, {
+      httpOnly: true,
+      secure: true,
+      sameSite: "none",
+      path: "/",
+      maxAge: 30 * 24 * 60 * 60 * 1000,
+    })
     .cookie("accessToken", accessToken, options)
     .json(
       new ApiResponse(200, "User logged in successfully", {
@@ -211,11 +221,16 @@ const refreshAcessToken = asyncHandler(async (req, res) => {
       sameSite: "none",
       path: "/",
       maxAge: 10 * 24 * 60 * 60 * 1000,
-      expires: new Date(Date.now() + 10 * 24 * 60 * 60 * 1000),
     };
     res
       .status(200)
-      .cookie("refreshToken", newRefreshToken, options)
+      .cookie("refreshToken", newRefreshToken, {
+        httpOnly: true,
+        secure: true,
+        sameSite: "none",
+        path: "/",
+        maxAge: 30 * 24 * 60 * 60 * 1000,
+      })
       .cookie("accessToken", accessToken, options)
       .json(
         new ApiResponse(200, "Token refreshed successfully", {
